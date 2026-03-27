@@ -204,7 +204,7 @@ class SessionMenu(Gtk.Window):
             ("shutdown.png", "Desligar",  "shutdown", "gnome-session-quit --power-off --no-prompt"),
             ("restart.png",  "Reiniciar", "restart",  "gnome-session-quit --reboot --no-prompt"),
             ("logout.png",   "Sair",      "logout",   "gnome-session-quit --logout --no-prompt"),
-            ("suspend.png",  "Suspenso",  "suspend",  "systemctl suspend"),
+            ("suspend.png",  "Suspenso",  "suspend",  "systemctl suspend -i"),
         ]
 
         hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
