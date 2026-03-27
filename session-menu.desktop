@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Session Menu
+Comment=Sair, Reiniciar ou Desligar
+Exec=python3 /home/dyegoalves/projetos/menu-logoff/main.py
+Icon=system-log-out
+Terminal=false
+Type=Application
+Categories=System;Utility;
