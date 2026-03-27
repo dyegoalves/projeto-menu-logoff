@@ -1,5 +1,6 @@
 import gi
 import os
+import sys
 import subprocess
 import math
 
@@ -7,8 +8,17 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GLib, GdkPixbuf
 import cairo
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ICONS_DIR = os.path.join(BASE_DIR, "assets", "icons")
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_path, relative_path)
+
+BASE_DIR = resource_path(".")
+ICONS_DIR = resource_path("assets/icons")
 
 
 def _is_dark_theme():
@@ -57,16 +67,16 @@ def _build_css() -> bytes:
 
 #UserLabel {{
     font-size: 11px;
-    font-weight: 700;
-    color: alpha(@theme_fg_color, 0.45);
-    letter-spacing: 0.8px;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.5);
+    letter-spacing: 1.2px;
 }}
 
 #CloseButton {{
-    background: alpha(@theme_fg_color, 0.08);
-    border: 1px solid alpha(@theme_fg_color, 0.1);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 50%;
-    color: alpha(@theme_fg_color, 0.5);
+    color: rgba(255, 255, 255, 0.6);
     padding: 0px;
     margin: 0px;
     font-size: 11px;
@@ -78,37 +88,41 @@ def _build_css() -> bytes:
     background: #e0443e;
     color: white;
     border: 1px solid #c0392b;
+    box-shadow: 0 0 8px rgba(224, 68, 62, 0.4);
 }}
 
 #HeaderSeparator, #FooterSeparator {{ 
-    background-color: alpha(@theme_fg_color, 0.1); 
+    background-color: rgba(255, 255, 255, 0.08); 
     min-height: 1px; 
 }}
 
 .session-button {{
     background: transparent;
     border: 2px solid transparent;
-    border-radius: 18px;
-    margin: 6px;
-    transition: all 150ms ease;
+    border-radius: 20px;
+    margin: 8px;
+    transition: all 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }}
 
 .session-button:hover, .session-button:focus {{
-    background-color: #3f3f3f;
-    border: 2px solid rgba(255, 255, 255, 0.1);
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }}
 
 .btn-label {{
-    font-size: 12px;
-    font-weight: 500;
-    color: alpha(@theme_fg_color, 0.85);
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.95);
+    margin-top: 4px;
 }}
 
 #DescLabel {{
     font-size: 12px;
-    color: alpha(@theme_fg_color, 0.4);
-    padding-top: 8px;
-    margin: 14px 0 8px 0;
+    color: rgba(255, 255, 255, 0.6);
+    padding-top: 10px;
+    margin: 16px 0 6px 0;
+    font-weight: 400;
 }}
 """
     return css.encode()
@@ -122,8 +136,8 @@ DESCRIPTIONS = {
 }
 
 class SessionMenu(Gtk.Window):
-    def __init__(self):
-        super().__init__(title="Sessão")
+    def __init__(self, application=None):
+        super().__init__(title="Sessão", application=application)
         self.set_name("SessionWindow")
         self.set_decorated(False)
         self.set_resizable(False)
@@ -131,6 +145,19 @@ class SessionMenu(Gtk.Window):
         self.set_keep_above(True)
         self.set_modal(True)
         self.set_type_hint(Gdk.WindowTypeHint.DIALOG)
+
+        # Set App Identity and Icon
+        try:
+            GLib.set_prgname("menu-logoff")
+            GLib.set_application_name("Menu Logoff")
+            icon_path = resource_path("assets/icons/icon-app.png")
+            if os.path.exists(icon_path):
+                # Use Pixbuf for more reliable icon setting
+                pixbuf = GdkPixbuf.Pixbuf.new_from_file(icon_path)
+                self.set_icon(pixbuf)
+                Gtk.Window.set_default_icon(pixbuf)
+        except Exception as e:
+            print(f"Erro ao carregar ícone: {e}")
 
         # Detect system dark/light mode
         self._dark = _is_dark_theme()
@@ -183,7 +210,7 @@ class SessionMenu(Gtk.Window):
         close_btn.set_size_request(24, 24)
         close_btn.set_relief(Gtk.ReliefStyle.NONE)
         close_btn.set_valign(Gtk.Align.CENTER)
-        close_btn.connect("clicked", lambda *_: Gtk.main_quit())
+        close_btn.connect("clicked", lambda *_: self.close_menu())
         header_box.pack_end(close_btn, False, False, 0)
 
         root.pack_start(header_box, False, False, 0)
@@ -343,13 +370,32 @@ class SessionMenu(Gtk.Window):
 
     def on_button_clicked(self, button, command):
         self.hide()
-        GLib.timeout_add(120, lambda: (subprocess.Popen(command.split()), Gtk.main_quit()))
+        # Use a slight delay to allow the window to hide before executing
+        GLib.timeout_add(150, self._execute_and_quit, command)
+
+    def _execute_and_quit(self, command):
+        try:
+            subprocess.Popen(command.split())
+        except Exception:
+            pass
+        # Exit the application
+        self.close_menu()
+        return False
+
+    def close_menu(self):
+        """Unified method to close the application correctly."""
+        if self.get_application():
+            self.get_application().quit()
+        else:
+            self.destroy()
+            if Gtk.main_level() > 0:
+                Gtk.main_quit()
 
     def on_key_press(self, widget, event):
         key = event.keyval
 
         if key == Gdk.KEY_Escape:
-            Gtk.main_quit()
+            self.close_menu()
             return True
 
         if key in (Gdk.KEY_Return, Gdk.KEY_KP_Enter, Gdk.KEY_space):
@@ -379,7 +425,33 @@ class SessionMenu(Gtk.Window):
         return False
 
 
+class SessionApp(Gtk.Application):
+    def __init__(self):
+        super().__init__(application_id="com.dyego.menu-logoff")
+        self.window = None  # Armazena referência da janela
+
+    def do_activate(self):
+        # Se janela já existe, apenas traz para frente
+        if self.window is not None and self.window.get_visible():
+            self.window.present()  # Traz janela para frente
+            self.window.buttons[0].grab_focus()
+            self.window._update_desc(0)
+            return
+
+        # Caso contrário, cria nova janela
+        self.window = SessionMenu(application=self)
+        self.window.show_all()
+        self.window.buttons[0].grab_focus()
+        self.window._update_desc(0)
+
+        # Conecta evento destroy para limpar referência
+        self.window.connect("destroy", self.on_window_destroy)
+
+    def on_window_destroy(self, window):
+        """Limpa referência quando janela é fechada"""
+        self.window = None
+
 if __name__ == "__main__":
-    win = SessionMenu()
-    win.connect("destroy", Gtk.main_quit)
-    Gtk.main()
+    app = SessionApp()
+    exit_status = app.run(sys.argv)
+    sys.exit(exit_status)
