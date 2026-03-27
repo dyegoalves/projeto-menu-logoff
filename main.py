@@ -201,8 +201,8 @@ class SessionMenu(Gtk.Window):
         # ── Action buttons (horizontal) ──
         # Order: shutdown | restart | logout | suspend
         actions = [
-            ("shutdown.png", "Desligar",  "shutdown", "gnome-session-quit --power-off --no-prompt"),
-            ("restart.png",  "Reiniciar", "restart",  "gnome-session-quit --reboot --no-prompt"),
+            ("shutdown.png", "Desligar",  "shutdown", "systemctl poweroff"),
+            ("restart.png",  "Reiniciar", "restart",  "systemctl reboot"),
             ("logout.png",   "Sair",      "logout",   "gnome-session-quit --logout --no-prompt"),
             ("suspend.png",  "Suspenso",  "suspend",  "systemctl suspend -i"),
         ]
