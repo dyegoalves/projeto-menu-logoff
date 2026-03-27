@@ -1,60 +1,32 @@
-.PHONY: help setup build dev release clean install install-deb test
+.PHONY: help dev installbuild run clean
 
 help:
-	@echo "🛠️  Menu-Logoff Build System (uv + PyInstaller)"
+	@echo "🛠️  Menu-Logoff (Limpeza Total)"
 	@echo ""
-	@echo "Setup (primeira vez apenas):"
-	@echo "  make setup       # Instalar dependências do sistema (requer sudo)"
-	@echo "  make deps        # Instalar dependências Python com uv"
+	@echo "  make dev          # Build rápido para testes"
+	@echo "  make installbuild # CONFIGURA, CONSTROI E INSTALA (Tudo em um!)"
+	@echo "  make run          # Roda o app direto (modo dev)"
+	@echo "  make clean        # Limpa tudo"
 	@echo ""
-	@echo "Build:"
-	@echo "  make dev         # Build rápido incremental (~15s)"
-	@echo "  make release     # Build otimizado + DEB (~30-60s)"
-	@echo "  make clean       # Limpar arquivos de build"
-	@echo ""
-	@echo "Instalação:"
-	@echo "  make install-deb # Instalar pacote DEB no sistema"
-	@echo ""
-	@echo "Executar:"
-	@echo "  make run         # Executar app diretamente (modo dev)"
-	@echo ""
-
-setup:
-	@echo "🔧 Instalando dependências do sistema..."
-	@bash scripts/setup-system.sh
-
-deps:
-	@echo "📦 Instalando dependências Python com uv..."
-	uv sync
 
 dev:
-	@echo "⚡ Build rápido (dev)..."
+	@echo "⚡ Build rápido..."
 	@bash scripts/build.sh dev
 
-release:
-	@echo "📦 Build release + DEB..."
+installbuild:
+	@echo "🛠️  Preparando ambiente e dependências..."
+	@bash scripts/build.sh setup
+	@echo "🚀 Gerando o binário..."
 	@bash scripts/build.sh release
-
-clean:
-	@echo "🧹 Limpando arquivos de build..."
-	rm -rf .build/ *.spec *.pyc __pycache__
-	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-
-clean-all: clean
-	@echo "🔥 Limpando tudo (VENV e RELEASES)..."
-	rm -rf .venv venv releases/*
-
-install-deb:
-	@echo "📦 Instalando pacote DEB..."
-	sudo dpkg -i releases/menu-logoff_1.0.0_amd64.deb
+	@echo "📦 Instalando no sistema..."
+	@sudo dpkg -i releases/menu-logoff_$(shell grep -m 1 'version =' pyproject.toml | cut -d '"' -f 2)_amd64.deb
+	@echo "🎉 Tudo pronto e atualizado!"
 
 run:
-	@echo "▶️  Executando app (modo dev)..."
-	uv run python main.py
+	@echo "▶️  Executando app..."
+	@uv run python app/main.py
 
-test:
-	@echo "🧪 Testando app..."
-	uv run python main.py &
-	sleep 2
-	pkill -f "main.py" || true
-	@echo "✅ Teste concluído!"
+clean:
+	@echo "🧹 Limpando tudo..."
+	@rm -rf .build/ *.spec *.pyc __pycache__ .venv venv releases/* app/version.txt
+	@find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true

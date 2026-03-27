@@ -124,6 +124,12 @@ def _build_css() -> bytes:
     margin: 16px 0 6px 0;
     font-weight: 400;
 }}
+
+#VersionLabel {{
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.15);
+    margin-top: 4px;
+}}
 """
     return css.encode()
 
@@ -148,7 +154,7 @@ class SessionMenu(Gtk.Window):
 
         # Set App Identity and Icon
         try:
-            GLib.set_prgname("menu-logoff")
+            GLib.set_prgname("com.dyego.menu-logoff")
             GLib.set_application_name("Menu Logoff")
             icon_path = resource_path("assets/icons/icon-app.png")
             if os.path.exists(icon_path):
@@ -257,6 +263,18 @@ class SessionMenu(Gtk.Window):
         self.desc_label.set_xalign(0.5)
         root.pack_start(self.desc_label, False, False, 0)
 
+        # ── Last line: version hint (very subtle) ──
+        try:
+            with open(resource_path("version.txt"), "r") as f:
+                version = f.read().strip()
+        except:
+            version = "1.0.1"
+
+        ver_label = Gtk.Label(label=f"v{version}")
+        ver_label.set_name("VersionLabel")
+        ver_label.set_halign(Gtk.Align.CENTER)
+        root.pack_start(ver_label, False, False, 0)
+
         self.connect("key-press-event", self.on_key_press)
 
         # Track focus changes to update description
@@ -291,17 +309,22 @@ class SessionMenu(Gtk.Window):
         cr.paint()
         cr.restore()
 
-        # 2) Paint rounded background — Mixture of user #1e1e1e and system alpha
+        # 2) Paint rounded background — Premium Glass Look
         cr.save()
         rounded_rect(cr)
         
-        # Solid background as requested (opacity 1.0)
-        cr.set_source_rgba(30/255, 30/255, 30/255, 1.0)
+        # Glassy dark background (85% opacity)
+        cr.set_source_rgba(25/255, 25/255, 25/255, 0.85)
         cr.fill_preserve()
         
-        # Border: mix of system FG and user #2a2a2a
-        cr.set_source_rgba(1, 1, 1, 0.08)
-        cr.set_line_width(1.5)
+        # Outer thin border for definition
+        cr.set_source_rgba(1, 1, 1, 0.12)
+        cr.set_line_width(1.2)
+        cr.stroke_preserve()
+
+        # Subtle inner shine (macOS style)
+        cr.set_source_rgba(255/255, 255/255, 255/255, 0.05)
+        cr.set_line_width(0.8)
         cr.stroke()
         cr.restore()
 

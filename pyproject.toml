@@ -1,6 +1,6 @@
 [project]
 name = "menu-logoff"
-version = "1.0.0"
+version = "1.0.1"
 description = "Custom power menu for Zorin OS with macOS-inspired aesthetics"
 readme = "README.md"
 requires-python = ">=3.10"

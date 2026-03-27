@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('../app/assets/icons', 'assets/icons')]
+datas = [('../app/assets/icons', 'assets/icons'), ('../app/version.txt', '.')]
 binaries = []
 hiddenimports = []
 tmp_ret = collect_all('gi')
