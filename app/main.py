@@ -1,7 +1,8 @@
-import gi
 import os
-import sys
 import subprocess
+import sys
+
+import gi
 import math
 
 gi.require_version('Gtk', '3.0')
@@ -22,24 +23,35 @@ ICONS_DIR = resource_path("assets/icons")
 
 
 def _is_dark_theme():
-    """Detect if ZorinOS / GNOME is using a dark theme using gsettings and GTK settings."""
+    """Detecta se o tema GNOME/Zorin é escuro usando múltiplas fontes."""
+    # Método 1: dconf CLI (funciona no PyInstaller, lê direto do arquivo)
     try:
-        # Check GNOME color-scheme first (modern way)
-        res = subprocess.check_output(
-            ["gsettings", "get", "org.gnome.desktop.interface", "color-scheme"],
-            stderr=subprocess.DEVNULL
-        ).decode().strip().strip("'")
-        if "dark" in res:
-            return True
-    except:
+        result = subprocess.run(
+            ["/usr/bin/dconf", "read", "/org/gnome/desktop/interface/color-scheme"],
+            capture_output=True,
+            timeout=2,
+            text=True
+        )
+        res = result.stdout.strip().strip("'")
+        if res and res not in ('', 'default'):
+            if "dark" in res.lower() or "prefer-dark" in res.lower():
+                return True
+    except Exception:
         pass
 
-    settings = Gtk.Settings.get_default()
-    if settings.get_property("gtk-application-prefer-dark-theme"):
-        return True
+    # Método 2: GTK Settings (fallback)
+    try:
+        settings_gtk = Gtk.Settings.get_default()
+        if settings_gtk:
+            theme = settings_gtk.get_property("gtk-theme-name") or ""
+            # Lista de indicadores de tema escuro
+            dark_indicators = ['dark', '-dark', 'nord', 'dracula', 'tokyo', 'night', 'black']
+            if theme and any(ind in theme.lower() for ind in dark_indicators):
+                return True
+    except Exception:
+        pass
 
-    theme = settings.get_property("gtk-theme-name") or ""
-    return "dark" in theme.lower()
+    return False
 
 
 def _get_font_name():
@@ -48,14 +60,37 @@ def _get_font_name():
     return settings.get_property("gtk-font-name") or "Sans 11"
 
 
-def _build_css() -> bytes:
-    """Build CSS that mixes user colors with Zorin system accent colors."""
+def _build_css(dark_theme: bool = True) -> bytes:
+    """Build CSS that mixes user colors with system theme (dark/light)."""
     font_name = _get_font_name()
-    
-    # User colors
-    header_side = "#2a2a2a"
-    hover_color = "#3f3f3f"
-    
+
+    if dark_theme:
+        # Dark theme colors
+        text_primary = "rgba(255, 255, 255, 0.95)"
+        text_secondary = "rgba(255, 255, 255, 0.6)"
+        text_tertiary = "rgba(255, 255, 255, 0.25)"
+        text_quaternary = "rgba(255, 255, 255, 0.12)"
+        button_bg_hover = "rgba(255, 255, 255, 0.12)"
+        button_border_hover = "rgba(255, 255, 255, 0.2)"
+        button_outline = "rgba(255, 255, 255, 0.3)"
+        close_button_bg = "rgba(255, 255, 255, 0.06)"
+        close_button_border = "rgba(255, 255, 255, 0.08)"
+        close_button_color = "rgba(255, 255, 255, 0.5)"
+        separator = "rgba(255, 255, 255, 0.05)"
+    else:
+        # Light theme colors
+        text_primary = "rgba(0, 0, 0, 0.9)"
+        text_secondary = "rgba(0, 0, 0, 0.7)"
+        text_tertiary = "rgba(0, 0, 0, 0.4)"
+        text_quaternary = "rgba(0, 0, 0, 0.2)"
+        button_bg_hover = "rgba(0, 0, 0, 0.06)"
+        button_border_hover = "rgba(0, 0, 0, 0.15)"
+        button_outline = "rgba(0, 0, 0, 0.3)"
+        close_button_bg = "rgba(0, 0, 0, 0.08)"
+        close_button_border = "rgba(0, 0, 0, 0.1)"
+        close_button_color = "rgba(0, 0, 0, 0.5)"
+        separator = "rgba(0, 0, 0, 0.08)"
+
     css = f"""
 * {{
     font-family: "{font_name}", sans-serif;
@@ -66,69 +101,81 @@ def _build_css() -> bytes:
 }}
 
 #UserLabel {{
-    font-size: 11px;
-    font-weight: 800;
-    color: rgba(255, 255, 255, 0.5);
-    letter-spacing: 1.2px;
+    font-size: 16px;
+    font-weight: 600;
+    color: {text_primary};
+    letter-spacing: 0.5px;
+}}
+
+#HeaderVersionLabel {{
+    font-size: 10px;
+    color: {text_tertiary};
+    letter-spacing: 0.5px;
 }}
 
 #CloseButton {{
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: {close_button_bg};
+    border: 1px solid {close_button_border};
     border-radius: 50%;
-    color: rgba(255, 255, 255, 0.6);
+    color: {close_button_color};
     padding: 0px;
     margin: 0px;
-    font-size: 11px;
-    min-width: 24px;
-    min-height: 24px;
+    font-size: 14px;
+    min-width: 28px;
+    min-height: 28px;
+    transition: all 200ms ease;
 }}
 
-#CloseButton:hover {{
+#CloseButton:hover, #CloseButton:focus {{
     background: #e0443e;
     color: white;
     border: 1px solid #c0392b;
-    box-shadow: 0 0 8px rgba(224, 68, 62, 0.4);
+    box-shadow: 0 0 10px rgba(224, 68, 62, 0.5);
+    outline: 2px solid {button_outline};
+    outline-offset: 2px;
 }}
 
-#HeaderSeparator, #FooterSeparator {{ 
-    background-color: rgba(255, 255, 255, 0.08); 
-    min-height: 1px; 
+#HeaderSeparator, #FooterSeparator {{
+    background-color: {separator};
+    min-height: 1px;
 }}
 
 .session-button {{
     background: transparent;
     border: 2px solid transparent;
-    border-radius: 20px;
-    margin: 8px;
-    transition: all 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    border-radius: 16px;
+    padding: 12px 16px;
+    transition: all 200ms ease-out;
 }}
 
-.session-button:hover, .session-button:focus {{
-    background-color: rgba(255, 255, 255, 0.1);
-    border: 2px solid rgba(255, 255, 255, 0.15);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+.session-button:hover {{
+    background-color: {button_bg_hover};
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}}
+
+.session-button:focus {{
+    background-color: {button_bg_hover};
 }}
 
 .btn-label {{
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.95);
-    margin-top: 4px;
+    color: {text_primary};
+    margin-top: 6px;
 }}
 
 #DescLabel {{
     font-size: 12px;
-    color: rgba(255, 255, 255, 0.6);
-    padding-top: 10px;
-    margin: 16px 0 6px 0;
+    color: {text_secondary};
+    padding-top: 8px;
+    margin: 8px 0 4px 0;
     font-weight: 400;
 }}
 
 #VersionLabel {{
     font-size: 10px;
-    color: rgba(255, 255, 255, 0.15);
-    margin-top: 4px;
+    color: {text_quaternary};
+    margin-top: 6px;
 }}
 """
     return css.encode()
@@ -177,7 +224,7 @@ class SessionMenu(Gtk.Window):
             self.connect("draw", self._on_draw)
 
         style_provider = Gtk.CssProvider()
-        style_provider.load_from_data(_build_css())
+        style_provider.load_from_data(_build_css(self._dark))
         Gtk.StyleContext.add_provider_for_screen(
             screen,
             style_provider,
@@ -185,39 +232,59 @@ class SessionMenu(Gtk.Window):
         )
 
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-        root.set_margin_top(14)
-        root.set_margin_bottom(18)
-        root.set_margin_start(16)
-        root.set_margin_end(16)
+        root.set_margin_top(16)
+        root.set_margin_bottom(20)
+        root.set_margin_start(20)
+        root.set_margin_end(20)
         self.add(root)
 
-        # ── Header row: user name (centered) + X button (right) ──
+        # ── Header: version (left) + user name (centered) + close button (right) ──
         header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         header_box.set_name("HeaderBox")
         header_box.set_margin_bottom(12)
 
+        # Version label (left, very subtle)
+        try:
+            with open(resource_path("version.txt"), "r") as f:
+                version = f.read().strip()
+        except:
+            version = "1.0.1"
+
+        ver_label = Gtk.Label(label=f"v{version}")
+        ver_label.set_name("HeaderVersionLabel")
+        ver_label.set_halign(Gtk.Align.START)
+        ver_label.set_valign(Gtk.Align.CENTER)
+        ver_label.set_margin_start(2)
+        header_box.pack_start(ver_label, False, False, 0)
+
+        # Spacer expander to push user label to center
+        spacer1 = Gtk.Box()
+        header_box.pack_start(spacer1, True, True, 0)
+
+        # User name (centered)
         try:
             user = os.environ.get("USER", os.popen("whoami").read().strip())
         except Exception:
             user = "Usuário"
 
-        # Spacer left (same width as close button) to keep name centered
-        spacer = Gtk.Box()
-        spacer.set_size_request(28, 1)
-        header_box.pack_start(spacer, False, False, 0)
-
         user_label = Gtk.Label(label=user.upper())
         user_label.set_name("UserLabel")
         user_label.set_halign(Gtk.Align.CENTER)
-        header_box.pack_start(user_label, True, True, 0)
+        header_box.pack_start(user_label, False, False, 0)
 
+        # Spacer expander to balance left side
+        spacer2 = Gtk.Box()
+        header_box.pack_start(spacer2, True, True, 0)
+
+        # Close button (right)
         close_btn = Gtk.Button(label="✕")
         close_btn.set_name("CloseButton")
-        close_btn.set_size_request(24, 24)
+        close_btn.set_size_request(28, 28)
         close_btn.set_relief(Gtk.ReliefStyle.NONE)
         close_btn.set_valign(Gtk.Align.CENTER)
         close_btn.connect("clicked", lambda *_: self.close_menu())
         header_box.pack_end(close_btn, False, False, 0)
+        close_btn.set_margin_start(10)
 
         root.pack_start(header_box, False, False, 0)
 
@@ -234,10 +301,11 @@ class SessionMenu(Gtk.Window):
             ("suspend.png",  "Suspenso",  "suspend",  "systemctl suspend -i"),
         ]
 
-        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        hbox.set_margin_top(14)
-        hbox.set_margin_bottom(6)
+        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        hbox.set_margin_top(18)
+        hbox.set_margin_bottom(12)
         hbox.set_halign(Gtk.Align.CENTER)
+        hbox.set_homogeneous(True)  # Todos os botões terão o mesmo tamanho
         hbox.connect("leave-notify-event", self.on_hbox_leave)
         root.pack_start(hbox, False, False, 0)
 
@@ -245,13 +313,15 @@ class SessionMenu(Gtk.Window):
         self.css_classes = []
         for icon_file, label_text, css_class, command in actions:
             btn = self._make_action_button(icon_file, label_text, css_class, command)
-            hbox.pack_start(btn, False, False, 0)
+            hbox.pack_start(btn, True, True, 0)  # Expand e fill para distribuir espaço
             self.buttons.append(btn)
             self.css_classes.append(css_class)
 
-        # ── Footer: separator + description label ──
+        # ── Footer: separator + description label (only) ──
         sep2 = Gtk.Separator()
         sep2.set_name("FooterSeparator")
+        sep2.set_margin_top(16)
+        sep2.set_margin_bottom(8)
         root.pack_start(sep2, False, False, 0)
 
         self.desc_label = Gtk.Label()
@@ -262,18 +332,6 @@ class SessionMenu(Gtk.Window):
         self.desc_label.set_hexpand(True)
         self.desc_label.set_xalign(0.5)
         root.pack_start(self.desc_label, False, False, 0)
-
-        # ── Last line: version hint (very subtle) ──
-        try:
-            with open(resource_path("version.txt"), "r") as f:
-                version = f.read().strip()
-        except:
-            version = "1.0.1"
-
-        ver_label = Gtk.Label(label=f"v{version}")
-        ver_label.set_name("VersionLabel")
-        ver_label.set_halign(Gtk.Align.CENTER)
-        root.pack_start(ver_label, False, False, 0)
 
         self.connect("key-press-event", self.on_key_press)
 
@@ -309,23 +367,31 @@ class SessionMenu(Gtk.Window):
         cr.paint()
         cr.restore()
 
-        # 2) Paint rounded background — Premium Glass Look
+        # 2) Paint rounded background — Solid opaque background
         cr.save()
         rounded_rect(cr)
-        
-        # Glassy dark background (85% opacity)
-        cr.set_source_rgba(25/255, 25/255, 25/255, 0.85)
+
+        # Use system theme for background color - 100% opaque
+        if self._dark:
+            # Dark theme: dark background (preto quase puro)
+            cr.set_source_rgba(20/255, 20/255, 20/255, 1.0)
+        else:
+            # Light theme: light gray background (matches system light theme)
+            cr.set_source_rgba(250/255, 250/255, 250/255, 1.0)
+
         cr.fill_preserve()
-        
-        # Outer thin border for definition
-        cr.set_source_rgba(1, 1, 1, 0.12)
-        cr.set_line_width(1.2)
+
+        # Outer border for definition
+        if self._dark:
+            border_color = (1, 1, 1, 0.15)
+        else:
+            border_color = (0, 0, 0, 0.2)
+
+        cr.set_source_rgba(*border_color)
+        cr.set_line_width(1.5)
         cr.stroke_preserve()
 
-        # Subtle inner shine (macOS style)
-        cr.set_source_rgba(255/255, 255/255, 255/255, 0.05)
-        cr.set_line_width(0.8)
-        cr.stroke()
+        # Remove inner shine for more solid look
         cr.restore()
 
         # Let child widgets draw on top
@@ -373,10 +439,8 @@ class SessionMenu(Gtk.Window):
         button.connect("clicked", self.on_button_clicked, command)
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        vbox.set_margin_top(14)
-        vbox.set_margin_bottom(14)
-        vbox.set_margin_start(18)
-        vbox.set_margin_end(18)
+        vbox.set_margin_top(12)
+        vbox.set_margin_bottom(12)
 
         icon_widget = self._load_icon(icon_file, size=48)
         icon_widget.set_halign(Gtk.Align.CENTER)
