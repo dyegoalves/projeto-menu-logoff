@@ -1,1 +1,0 @@
-Percorra o projeto inteiro e documente cada módulo e funcionalidade de forma separada,criando um arquivo .md individual para cada um no vault do Obsidian. seguindo o template @docs/arquitetura.md , lemnbrando trata-se de obsidian , linke os arquivos que se conectam , assim temos uma correlacao das documentacao e saber qual do sistema tem connecxao direta.
